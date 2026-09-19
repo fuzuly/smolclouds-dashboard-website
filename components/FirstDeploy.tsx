@@ -18,7 +18,7 @@ export function FirstDeploy() {
 
       <ol className="mt-9 [&>li:last-child>div]:pb-0">
         <Step n={1} title="Install the CLI" state="current">
-          <Command>npm install -g smolclouds</Command>
+          <Command>curl -fsSL https://smolclouds.com/install.sh | sh</Command>
         </Step>
 
         <Step n={2} title="Sign in with your API token" state="current">

@@ -65,8 +65,11 @@ export default async function WelcomePage() {
           </p>
         </Step>
 
-        <Step n={4} title="Deploy">
-          <Command>smolclouds deploy .</Command>
+        <Step n={4} title="Install the CLI and deploy">
+          <div className="space-y-3">
+            <Command>curl -fsSL https://smolclouds.com/install.sh | sh</Command>
+            <Command>smolclouds deploy .</Command>
+          </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted">
             The app gets a URL, then sleeps on its own when traffic stops and wakes on the next
             request.
