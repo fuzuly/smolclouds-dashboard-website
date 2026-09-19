@@ -67,7 +67,7 @@ export default async function WelcomePage() {
 
         <Step n={4} title="Install the CLI and deploy">
           <div className="space-y-3">
-            <Command>curl -fsSL https://smolclouds.com/install.sh | sh</Command>
+            <Command>curl -fsSL https://api.smolclouds.com/install.sh | sh</Command>
             <Command>smolclouds deploy .</Command>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted">
