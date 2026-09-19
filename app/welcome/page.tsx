@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { AuthFrame } from "@/components/AuthFrame";
+import { CliInstallCommands } from "@/components/CliInstallCommands";
 import { Command } from "@/components/Copy";
 import { InviteForm } from "@/components/InviteForm";
 import { Step } from "@/components/ui";
@@ -67,7 +68,7 @@ export default async function WelcomePage() {
 
         <Step n={4} title="Install the CLI and deploy">
           <div className="space-y-3">
-            <Command>curl -fsSL https://api.smolclouds.com/install.sh | sh</Command>
+            <CliInstallCommands />
             <Command>smolclouds deploy .</Command>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-muted">

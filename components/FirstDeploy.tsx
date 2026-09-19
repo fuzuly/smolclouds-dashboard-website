@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CliInstallCommands } from "@/components/CliInstallCommands";
 import { Command } from "@/components/Copy";
 import { Panel, Step } from "@/components/ui";
 
@@ -18,7 +19,7 @@ export function FirstDeploy() {
 
       <ol className="mt-9 [&>li:last-child>div]:pb-0">
         <Step n={1} title="Install the CLI" state="current">
-          <Command>curl -fsSL https://api.smolclouds.com/install.sh | sh</Command>
+          <CliInstallCommands />
         </Step>
 
         <Step n={2} title="Sign in with your API token" state="current">
