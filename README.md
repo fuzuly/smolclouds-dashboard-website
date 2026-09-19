@@ -31,7 +31,9 @@ middleware — protects everything except the auth routes and
 behind it can forget the check. An email on `PILOT_ALLOWED_DOMAINS` is approved
 on first sight; anyone else lands on `/welcome` and redeems a code from
 `PILOT_INVITE_CODES`. The result is written to the Clerk user's public
-metadata, so it is one metadata read afterwards.
+metadata, so it is one metadata read afterwards. Setting `PILOT_OPEN=true`
+lifts the gate: every signed-in account is approved and `/welcome` forwards
+straight to `/apps`.
 
 **The API token** is minted in `lib/token.ts`:
 
@@ -65,6 +67,7 @@ vocabulary to be displayed correctly.
 | `SMOLCLOUDS_API_BASE` | Router base URL, defaults to `https://api.smolclouds.com` |
 | `PILOT_ALLOWED_DOMAINS` | Comma-separated domains admitted without a code |
 | `PILOT_INVITE_CODES` | Comma-separated invite codes |
+| `PILOT_OPEN` | `true` admits every signed-in account (demo mode) |
 
 ## Router side
 

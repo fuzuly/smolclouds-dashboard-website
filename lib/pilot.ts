@@ -3,7 +3,14 @@
  * approved — automatically when their email domain is on the allowlist, or by
  * redeeming an invite code. Approval is recorded on the Clerk user so the
  * check costs nothing on later requests.
+ *
+ * `PILOT_OPEN=true` lifts the gate entirely (e.g. for demos): every signed-in
+ * user counts as approved. Unset or anything else keeps the closed pilot.
  */
+
+export function pilotOpen(): boolean {
+  return process.env.PILOT_OPEN?.trim().toLowerCase() === "true";
+}
 
 function list(value: string | undefined): string[] {
   return (value ?? "")
@@ -32,7 +39,7 @@ export function inviteCodeValid(code: string): boolean {
 
 export type PilotStatus = {
   approved: boolean;
-  via?: "domain" | "invite";
+  via?: "open" | "domain" | "invite";
   at?: string;
 };
 

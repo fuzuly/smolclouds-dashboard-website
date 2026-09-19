@@ -3,7 +3,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth, clerkClient, currentUser, type User } from "@clerk/nextjs/server";
 import { keyFor, type StoredKey } from "@/lib/keys";
-import { domainAllowed, pilotStatus, type PilotStatus } from "@/lib/pilot";
+import { domainAllowed, pilotOpen, pilotStatus, type PilotStatus } from "@/lib/pilot";
 
 /**
  * Closed-pilot enforcement, run from the console layout so every page behind it
@@ -46,7 +46,9 @@ export async function requireUser(): Promise<PilotUser> {
   const stored = pilotStatus(user!.publicMetadata);
   const status: PilotStatus = stored.approved
     ? stored
-    : domainAllowed(email)
+    : pilotOpen()
+      ? { approved: true, via: "open" }
+      : domainAllowed(email)
       ? { approved: true, via: "domain" }
       : { approved: false };
 
