@@ -160,7 +160,7 @@ bearer header, not cookies.
 | `DELETE` | `/deployments/{id}` | delete button on `/apps` | 2xx on success |
 
 Per deployment the console reads `id`, `name`, `url`, `state`, `lastRequestAt`,
-`createdAt`, `region`. `state` is matched case-insensitively and several
+`createdAt`. `state` is matched case-insensitively and several
 spellings already map through (`running`/`active` → awake,
 `sleeping`/`suspended`/`idle` → asleep, `waking`/`pending` → starting), so the
 router does not have to change its vocabulary. Snake_case keys

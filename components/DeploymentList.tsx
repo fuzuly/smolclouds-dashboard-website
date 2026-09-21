@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { Deployment } from "@/lib/router";
 import { removeDeployment } from "@/app/(console)/apps/actions";
@@ -67,7 +68,12 @@ function Row({ deployment }: { deployment: DeploymentRow }) {
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px]">{deployment.name}</div>
+          <Link
+            href={`/apps/${encodeURIComponent(deployment.id)}`}
+            className="block truncate text-[13px] underline decoration-transparent underline-offset-4 transition-colors hover:decoration-muted"
+          >
+            {deployment.name}
+          </Link>
           {deployment.url ? (
             <a
               href={deployment.url}

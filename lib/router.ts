@@ -14,7 +14,6 @@ export type Deployment = {
   state: "awake" | "asleep" | "starting" | "error" | "unknown";
   lastRequestAt?: string;
   createdAt?: string;
-  region?: string;
 };
 
 export class RouterError extends Error {
@@ -63,7 +62,6 @@ function normalize(body: unknown): Deployment[] {
     state: normalizeState(row.state ?? row.status),
     lastRequestAt: pickDate(row.lastRequestAt ?? row.last_request_at ?? row.lastRequest),
     createdAt: pickDate(row.createdAt ?? row.created_at),
-    region: typeof row.region === "string" ? row.region : undefined,
   }));
 }
 
