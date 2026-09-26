@@ -25,6 +25,9 @@ export type AppUsage = {
   wakes: number;
 };
 
+export type AppRevision = { id: string; createdAt: string; current: boolean };
+export type AppLogs = { deployment: string; text: string };
+
 export class RouterError extends Error {
   constructor(
     message: string,
@@ -58,16 +61,23 @@ async function call(path: string, token: string, init?: RequestInit): Promise<Re
   return response;
 }
 
-/** Accepts either a bare array or `{ deployments: [...] }` from the router. */
+/** Accepts the current `/v1/apps` envelope and the older deployment shape. */
 function normalize(body: unknown): Deployment[] {
   const rows = Array.isArray(body)
     ? body
-    : ((body as { deployments?: unknown[] } | null)?.deployments ?? []);
+    : ((body as { apps?: unknown[]; deployments?: unknown[] } | null)?.apps ??
+      (body as { deployments?: unknown[] } | null)?.deployments ??
+      []);
 
   return (rows as Record<string, unknown>[]).map((row) => ({
     id: String(row.id ?? row.name ?? ""),
     name: String(row.name ?? row.id ?? "unnamed"),
-    url: typeof row.url === "string" ? row.url : undefined,
+    url:
+      typeof row.url === "string"
+        ? row.url
+        : typeof row.hostname === "string"
+          ? `https://${row.hostname}`
+          : undefined,
     state: normalizeState(row.state ?? row.status),
     lastRequestAt: pickDate(row.lastRequestAt ?? row.last_request_at ?? row.lastRequest),
     createdAt: pickDate(row.createdAt ?? row.created_at),
@@ -90,12 +100,15 @@ function pickDate(value: unknown): string | undefined {
   return undefined;
 }
 
-function metric(value: unknown): number {
+function metric(value: unknown, name: string): number {
   if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) {
-    return 0;
+    throw new Error(`Missing usage field: ${name}`);
   }
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`Invalid usage field: ${name}`);
+  }
+  return parsed;
 }
 
 function normalizeUsage(body: unknown): AppUsage {
@@ -103,17 +116,43 @@ function normalizeUsage(body: unknown): AppUsage {
   const row = (envelope?.usage ?? body) as Record<string, unknown> | null;
 
   return {
-    activeSeconds: metric(row?.active_seconds),
-    egressBytes: metric(row?.egress),
-    ingressBytes: metric(row?.ingress),
-    requests: metric(row?.requests),
-    wakes: metric(row?.wakes),
+    activeSeconds: metric(row?.activeSeconds ?? row?.active_seconds, "activeSeconds"),
+    egressBytes: metric(row?.egressBytes ?? row?.egress, "egressBytes"),
+    ingressBytes: metric(row?.ingressBytes ?? row?.ingress, "ingressBytes"),
+    requests: metric(row?.requests, "requests"),
+    wakes: metric(row?.wakes, "wakes"),
   };
 }
 
 export async function listDeployments(token: string): Promise<Deployment[]> {
-  const response = await call("/deployments", token);
-  return normalize(await response.json());
+  const [appsResponse, activityResponse] = await Promise.all([
+    call("/v1/apps", token),
+    call("/deployments", token),
+  ]);
+  const apps = normalize(await appsResponse.json());
+  const activity = new Map(normalize(await activityResponse.json()).map((item) => [item.id, item]));
+  return apps.map((app) => ({ ...app, ...activity.get(app.id) }));
+}
+
+export async function listAppRevisions(token: string, id: string): Promise<AppRevision[]> {
+  const response = await call(`/v1/apps/${encodeURIComponent(id)}/deployments`, token);
+  const body = (await response.json()) as { deployments?: AppRevision[] };
+  if (!Array.isArray(body.deployments)) throw new Error("Invalid deployment history");
+  return body.deployments;
+}
+
+export async function getAppLogs(token: string, id: string, deployment?: string): Promise<AppLogs> {
+  const query = deployment ? `?${new URLSearchParams({ deployment })}` : "";
+  const response = await call(`/v1/apps/${encodeURIComponent(id)}/logs${query}`, token);
+  return (await response.json()) as AppLogs;
+}
+
+export async function rollbackApp(token: string, id: string, deployment: string): Promise<void> {
+  await call(`/v1/apps/${encodeURIComponent(id)}/rollback`, token, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ deployment }),
+  });
 }
 
 export async function getAppUsage(
@@ -127,5 +166,5 @@ export async function getAppUsage(
 }
 
 export async function deleteDeployment(token: string, id: string): Promise<void> {
-  await call(`/deployments/${encodeURIComponent(id)}`, token, { method: "DELETE" });
+  await call(`/v1/apps/${encodeURIComponent(id)}`, token, { method: "DELETE" });
 }

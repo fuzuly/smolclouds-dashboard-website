@@ -90,7 +90,7 @@ export default async function UsagePage() {
             </Link>
           }
         >
-          The deployment list is the starting point for both metered usage and activity, so every
+          The app list is the starting point for both metered usage and activity, so every
           number here comes back as soon as the router answers again.
         </Diagnostic>
       </>

@@ -23,7 +23,7 @@ export default async function AppsPage() {
   } catch (error) {
     failure =
       error instanceof RouterError
-        ? `It answered ${error.status} for GET /deployments.`
+        ? `It answered ${error.status} for GET /v1/apps.`
         : "It did not answer in time.";
   }
 
@@ -39,7 +39,7 @@ export default async function AppsPage() {
       <PageHeader
         label="apps"
         title="Your apps"
-        description="Every app deployed to this account, and whether it is awake right now. Apps sleep when nothing is calling them and wake on the next request."
+        description="Every app in this account, with live state for deployed apps. Apps sleep when nothing is calling them and wake on the next request."
         right={
           failure || deployments.length === 0 ? null : (
             <span className="tabular-nums">
@@ -63,7 +63,7 @@ export default async function AppsPage() {
             </Link>
           }
         >
-          {failure} Deployments are read from the server, not your browser, so this is the router
+          {failure} Apps are read from the server, not your browser, so this is the router
           itself — not a network or CORS problem on this page. Your apps keep running and nothing
           was changed.
         </Diagnostic>
