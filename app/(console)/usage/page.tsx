@@ -11,7 +11,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { requirePilot } from "@/lib/gate";
-import { listDeployments, type Deployment } from "@/lib/router";
+import { getAppUsage, listDeployments, type AppUsage, type Deployment } from "@/lib/router";
 import { site } from "@/lib/site";
 import { ago, exact } from "@/lib/time";
 
@@ -20,6 +20,39 @@ export const dynamic = "force-dynamic";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
+const BYTE = 1024;
+const COUNT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+
+type UsageRow = {
+  deployment: Deployment;
+  usage: AppUsage | null;
+};
+
+function formatHours(seconds: number): string {
+  return `${(seconds / 3600).toFixed(1)} h`;
+}
+
+function formatBytes(bytes: number): string {
+  const gigabytes = bytes / BYTE ** 3;
+  if (gigabytes >= 1) return `${gigabytes.toFixed(1)} GB`;
+  return `${(bytes / BYTE ** 2).toFixed(1)} MB`;
+}
+
+function formatCount(value: number): string {
+  return COUNT.format(Math.round(value));
+}
+
+function currentMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function monthName(month: string): string {
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${month}-01T00:00:00Z`));
+}
 
 /** Milliseconds since the app last served a request, or null if it never has. */
 function idleFor(deployment: Deployment): number | null {
@@ -57,12 +90,35 @@ export default async function UsagePage() {
             </Link>
           }
         >
-          Usage is derived from the deployment list, so every number here comes back as soon as the
-          router answers again.
+          The deployment list is the starting point for both metered usage and activity, so every
+          number here comes back as soon as the router answers again.
         </Diagnostic>
       </>
     );
   }
+
+  const month = currentMonth();
+  const usageRows: UsageRow[] = await Promise.all(
+    deployments.map(async (deployment) => {
+      try {
+        const usage = await getAppUsage(user.key.token, deployment.id, month);
+        return { deployment, usage };
+      } catch {
+        return { deployment, usage: null };
+      }
+    }),
+  );
+  const reportedUsage = usageRows.flatMap((row) => (row.usage ? [row.usage] : []));
+  const usageFailures = usageRows.length - reportedUsage.length;
+  const usageTotals = reportedUsage.reduce(
+    (total, usage) => ({
+      activeSeconds: total.activeSeconds + usage.activeSeconds,
+      egressBytes: total.egressBytes + usage.egressBytes,
+      requests: total.requests + usage.requests,
+    }),
+    { activeSeconds: 0, egressBytes: 0, requests: 0 },
+  );
+  const hasReportedUsage = reportedUsage.length > 0;
 
   const awake = deployments.filter((item) => item.state === "awake").length;
   const idle = deployments.map(idleFor);
@@ -94,7 +150,7 @@ export default async function UsagePage() {
       <PageHeader
         label="usage"
         title="Usage"
-        description="What this account is running right now. The closed pilot is not billed — these numbers are here so nothing is a surprise later."
+        description="Metered consumption for this month, followed by what this account is running right now. The closed pilot is not billed."
         right={<span>closed pilot</span>}
       />
 
@@ -115,14 +171,95 @@ export default async function UsagePage() {
       ) : (
         <>
           <div className="grid gap-px bg-line sm:grid-cols-3">
-            <Stat value={deployments.length} label="apps" note="deployed to this account" />
-            <Stat value={awake} label="awake now" note="running, using active compute" />
             <Stat
-              value={activeToday}
-              label="active today"
-              note="served a request in the last 24 hours"
+              value={hasReportedUsage ? formatHours(usageTotals.activeSeconds) : "—"}
+              label="active time"
+              note={`${monthName(month)} across ${reportedUsage.length} of ${deployments.length} apps`}
+            />
+            <Stat
+              value={hasReportedUsage ? formatBytes(usageTotals.egressBytes) : "—"}
+              label="egress"
+              note="outbound traffic this month"
+            />
+            <Stat
+              value={hasReportedUsage ? formatCount(usageTotals.requests) : "—"}
+              label="requests"
+              note="served this month"
             />
           </div>
+
+          <section className="mt-14">
+            <Rule
+              label="metered by app"
+              right={`${monthName(month)} · ${reportedUsage.length}/${deployments.length} reporting`}
+            />
+            <Panel className="overflow-x-auto">
+              <table className="w-full min-w-[42rem] border-collapse text-left">
+                <thead className="border-b border-line bg-surface-2 text-[10px] uppercase tracking-[0.18em] text-ghost">
+                  <tr>
+                    <th scope="col" className="px-5 py-3 font-normal">
+                      app
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-normal">
+                      active
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-normal">
+                      egress
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-normal">
+                      requests
+                    </th>
+                    <th scope="col" className="px-5 py-3 text-right font-normal">
+                      wakes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usageRows.map(({ deployment, usage }) => (
+                    <tr key={deployment.id} className="border-b border-line last:border-b-0">
+                      <th scope="row" className="px-5 py-4 text-[13px] font-normal text-dim">
+                        <span className="block max-w-64 truncate">{deployment.name}</span>
+                        {!usage ? (
+                          <span className="mt-1 block text-[10px] text-faint">usage unavailable</span>
+                        ) : null}
+                      </th>
+                      <td className="px-5 py-4 text-right text-[12px] tabular-nums text-muted">
+                        {usage ? formatHours(usage.activeSeconds) : "—"}
+                      </td>
+                      <td className="px-5 py-4 text-right text-[12px] tabular-nums text-muted">
+                        {usage ? formatBytes(usage.egressBytes) : "—"}
+                      </td>
+                      <td className="px-5 py-4 text-right text-[12px] tabular-nums text-muted">
+                        {usage ? formatCount(usage.requests) : "—"}
+                      </td>
+                      <td className="px-5 py-4 text-right text-[12px] tabular-nums text-muted">
+                        {usage ? formatCount(usage.wakes) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+            {usageFailures > 0 ? (
+              <p className="mt-3 text-[11px] leading-relaxed text-faint">
+                {usageFailures} {usageFailures === 1 ? "app is" : "apps are"} missing from the
+                totals because the router did not return usage for them.
+              </p>
+            ) : null}
+          </section>
+
+          <section className="mt-14">
+            <Rule label="activity snapshot" />
+            <div className="grid gap-px bg-line sm:grid-cols-3">
+              <Stat value={deployments.length} label="apps" note="deployed to this account" />
+              <Stat value={awake} label="awake now" note="running, using active compute" />
+              <Stat
+                value={activeToday}
+                label="active today"
+                note="served a request in the last 24 hours"
+              />
+            </div>
+          </section>
 
           <section className="mt-14 grid gap-12 md:grid-cols-2">
             <div>

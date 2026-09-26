@@ -17,6 +17,14 @@ export type Deployment = {
   region?: string;
 };
 
+export type AppUsage = {
+  activeSeconds: number;
+  egressBytes: number;
+  ingressBytes: number;
+  requests: number;
+  wakes: number;
+};
+
 export class RouterError extends Error {
   constructor(
     message: string,
@@ -82,9 +90,40 @@ function pickDate(value: unknown): string | undefined {
   return undefined;
 }
 
+function metric(value: unknown): number {
+  if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function normalizeUsage(body: unknown): AppUsage {
+  const envelope = body as { usage?: unknown } | null;
+  const row = (envelope?.usage ?? body) as Record<string, unknown> | null;
+
+  return {
+    activeSeconds: metric(row?.active_seconds),
+    egressBytes: metric(row?.egress),
+    ingressBytes: metric(row?.ingress),
+    requests: metric(row?.requests),
+    wakes: metric(row?.wakes),
+  };
+}
+
 export async function listDeployments(token: string): Promise<Deployment[]> {
   const response = await call("/deployments", token);
   return normalize(await response.json());
+}
+
+export async function getAppUsage(
+  token: string,
+  id: string,
+  month?: string,
+): Promise<AppUsage> {
+  const query = month ? `?${new URLSearchParams({ month })}` : "";
+  const response = await call(`/v1/apps/${encodeURIComponent(id)}/usage${query}`, token);
+  return normalizeUsage(await response.json());
 }
 
 export async function deleteDeployment(token: string, id: string): Promise<void> {
