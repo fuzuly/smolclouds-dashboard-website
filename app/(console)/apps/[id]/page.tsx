@@ -1,24 +1,85 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { RollbackButton } from "@/components/RollbackButton";
-import { PageHeader, Panel, Rule, StatusBadge } from "@/components/ui";
+import { Diagnostic, PageHeader, Panel, Rule, StatusBadge } from "@/components/ui";
 import { requirePilot } from "@/lib/gate";
-import { getAppLogs, listAppRevisions, listDeployments } from "@/lib/router";
+import {
+  getAppLogs,
+  listAppRevisions,
+  listDeployments,
+  RouterError,
+  type Deployment,
+} from "@/lib/router";
+import { site } from "@/lib/site";
 import { exact } from "@/lib/time";
 
-export const metadata: Metadata = { title: "App details" };
 export const dynamic = "force-dynamic";
 
-export default async function AppPage({
-  params,
-  searchParams,
-}: {
+type Props = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ deployment?: string }>;
-}) {
+};
+
+type AppLookup = { app: Deployment | null; failure: null } | { app: null; failure: string };
+
+/**
+ * The app list, read once per request: `generateMetadata` and the page both
+ * need it, and the router should see one round trip, not two.
+ */
+const lookupApp = cache(async (token: string, id: string): Promise<AppLookup> => {
+  try {
+    const app = (await listDeployments(token)).find((item) => item.id === id) ?? null;
+    return { app, failure: null };
+  } catch (error) {
+    return {
+      app: null,
+      failure:
+        error instanceof RouterError
+          ? `It answered ${error.status} for GET /v1/apps.`
+          : "It did not answer in time.",
+    };
+  }
+});
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const [{ id }, user] = await Promise.all([params, requirePilot()]);
+  const { app } = await lookupApp(user.key.token, id);
+  return { title: app?.name ?? "App details" };
+}
+
+export default async function AppPage({ params, searchParams }: Props) {
   const [{ id }, { deployment }, user] = await Promise.all([params, searchParams, requirePilot()]);
-  const app = (await listDeployments(user.key.token)).find((item) => item.id === id);
+  const { app, failure } = await lookupApp(user.key.token, id);
+
+  if (failure) {
+    return (
+      <>
+        <PageHeader
+          label="app / details"
+          title="App details"
+          right={<Link href="/apps" className="hover:text-text">← all apps</Link>}
+        />
+        <Diagnostic
+          from={site.console}
+          to={site.apiBase.replace(/^https?:\/\//, "")}
+          title="The console could not reach the router"
+          action={
+            <Link
+              href={`/apps/${encodeURIComponent(id)}`}
+              className="inline-block border border-text bg-text px-4 py-2 text-[11px] text-bg transition-colors hover:bg-dim"
+            >
+              try again
+            </Link>
+          }
+        >
+          {failure} The app keeps running and nothing was changed.
+        </Diagnostic>
+      </>
+    );
+  }
+
   if (!app) notFound();
 
   let revisions: Awaited<ReturnType<typeof listAppRevisions>> = [];
