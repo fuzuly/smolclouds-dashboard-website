@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import type { Deployment } from "@/lib/router";
 import { removeDeployment } from "@/app/(console)/apps/actions";
+import { CopyButton } from "@/components/Copy";
 import { StateRail, StatusBadge } from "@/components/ui";
 import { ago } from "@/lib/time";
 
@@ -72,14 +73,22 @@ function Row({ deployment }: { deployment: DeploymentRow }) {
             {deployment.name} <span className="text-ghost">↗</span>
           </Link>
           {deployment.url ? (
-            <a
-              href={deployment.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-1 inline-block max-w-full truncate text-[11px] text-muted underline decoration-ghost underline-offset-4 transition-colors hover:text-dim hover:decoration-muted"
-            >
-              {deployment.url.replace(/^https?:\/\//, "")} ↗
-            </a>
+            <div className="mt-1 flex min-w-0 items-center gap-2">
+              <a
+                href={deployment.url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 truncate text-[11px] text-muted underline decoration-ghost underline-offset-4 transition-colors hover:text-dim hover:decoration-muted"
+              >
+                {deployment.url.replace(/^https?:\/\//, "")} ↗
+              </a>
+              {/* Hover-revealed like delete on wide screens; always shown where there is no hover. */}
+              <CopyButton
+                value={deployment.url}
+                label="copy url"
+                className="focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+              />
+            </div>
           ) : (
             <div className="mt-1 truncate text-[11px] text-ghost">{deployment.id}</div>
           )}
