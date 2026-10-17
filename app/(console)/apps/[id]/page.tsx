@@ -4,14 +4,9 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { RollbackButton } from "@/components/RollbackButton";
 import { Diagnostic, PageHeader, Panel, Rule, StatusBadge } from "@/components/ui";
+import { explainFailure } from "@/lib/errors";
 import { requirePilot } from "@/lib/gate";
-import {
-  getAppLogs,
-  listAppRevisions,
-  listDeployments,
-  RouterError,
-  type Deployment,
-} from "@/lib/router";
+import { getAppLogs, listAppRevisions, listDeployments, type Deployment } from "@/lib/router";
 import { site } from "@/lib/site";
 import { exact } from "@/lib/time";
 
@@ -33,13 +28,7 @@ const lookupApp = cache(async (token: string, id: string): Promise<AppLookup> =>
     const app = (await listDeployments(token)).find((item) => item.id === id) ?? null;
     return { app, failure: null };
   } catch (error) {
-    return {
-      app: null,
-      failure:
-        error instanceof RouterError
-          ? `It answered ${error.status} for GET /v1/apps.`
-          : "It did not answer in time.",
-    };
+    return { app: null, failure: explainFailure(error, "GET /v1/apps") };
   }
 });
 

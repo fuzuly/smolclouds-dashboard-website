@@ -3,8 +3,9 @@ import Link from "next/link";
 import { DeploymentList, type DeploymentRow } from "@/components/DeploymentList";
 import { FirstDeploy } from "@/components/FirstDeploy";
 import { Diagnostic, PageHeader } from "@/components/ui";
+import { explainFailure } from "@/lib/errors";
 import { requirePilot } from "@/lib/gate";
-import { listDeployments, RouterError, type Deployment } from "@/lib/router";
+import { listDeployments, type Deployment } from "@/lib/router";
 import { site } from "@/lib/site";
 import { ago, exact } from "@/lib/time";
 
@@ -21,10 +22,7 @@ export default async function AppsPage() {
   try {
     deployments = await listDeployments(key.token);
   } catch (error) {
-    failure =
-      error instanceof RouterError
-        ? `It answered ${error.status} for GET /v1/apps.`
-        : "It did not answer in time.";
+    failure = explainFailure(error, "GET /v1/apps");
   }
 
   const awake = deployments.filter((item) => item.state === "awake").length;

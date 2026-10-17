@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { explainAction } from "@/lib/errors";
 import { requirePilot } from "@/lib/gate";
-import { deleteDeployment, rollbackApp, RouterError } from "@/lib/router";
+import { deleteDeployment, rollbackApp } from "@/lib/router";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -13,11 +14,7 @@ export async function removeDeployment(id: string): Promise<ActionResult> {
   try {
     await deleteDeployment(key.token, id);
   } catch (error) {
-    const message =
-      error instanceof RouterError
-        ? `router refused the delete (${error.status})`
-        : "could not reach the router";
-    return { ok: false, error: message };
+    return { ok: false, error: explainAction(error, "delete") };
   }
 
   revalidatePath("/apps");
@@ -33,10 +30,7 @@ export async function rollbackRevision(id: string, revision: string): Promise<Ac
   try {
     await rollbackApp(user.key.token, id, revision);
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof RouterError ? `router refused rollback (${error.status})` : "could not reach the router",
-    };
+    return { ok: false, error: explainAction(error, "rollback") };
   }
   revalidatePath(`/apps/${id}`);
   revalidatePath("/apps");

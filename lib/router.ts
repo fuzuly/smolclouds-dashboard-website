@@ -32,10 +32,33 @@ export class RouterError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** The router's stable refusal code (`app_limit_reached`, …), when it sent one. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = "RouterError";
   }
+}
+
+/**
+ * Pulls a refusal code out of an error body. Accepts `{ code }`,
+ * `{ error: "code" }` and `{ error: { code } }`; only a snake_case
+ * identifier counts, so a human-readable message is never mistaken for one.
+ */
+function refusalCode(text: string): string | undefined {
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  const record = body as { code?: unknown; error?: unknown } | null;
+  const nested = record?.error as { code?: unknown } | null | undefined;
+  const candidate =
+    record?.code ?? (typeof record?.error === "string" ? record.error : nested?.code);
+  return typeof candidate === "string" && /^[a-z][a-z0-9_]*$/.test(candidate)
+    ? candidate
+    : undefined;
 }
 
 async function call(path: string, token: string, init?: RequestInit): Promise<Response> {
@@ -53,9 +76,11 @@ async function call(path: string, token: string, init?: RequestInit): Promise<Re
   });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => "");
     throw new RouterError(
       `${init?.method ?? "GET"} ${path} failed: ${response.status} ${response.statusText}`,
       response.status,
+      refusalCode(text),
     );
   }
   return response;
