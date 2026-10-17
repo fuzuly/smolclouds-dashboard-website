@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DeploymentList, type DeploymentRow } from "@/components/DeploymentList";
+import { AppBrowser } from "@/components/AppBrowser";
+import type { DeploymentRow } from "@/components/DeploymentList";
 import { FirstDeploy } from "@/components/FirstDeploy";
 import { Diagnostic, PageHeader } from "@/components/ui";
+import { parseAppQuery } from "@/lib/app-query";
 import { explainFailure } from "@/lib/errors";
 import { requirePilot } from "@/lib/gate";
 import { listDeployments, type Deployment } from "@/lib/router";
@@ -12,7 +14,7 @@ import { ago, exact } from "@/lib/time";
 export const metadata: Metadata = { title: "Apps" };
 export const dynamic = "force-dynamic";
 
-export default async function AppsPage() {
+export default async function AppsPage({ searchParams }: PageProps<"/apps">) {
   const user = await requirePilot();
   const key = user.key;
 
@@ -68,15 +70,7 @@ export default async function AppsPage() {
       ) : deployments.length === 0 ? (
         <FirstDeploy />
       ) : (
-        <>
-          <div className="flex gap-x-6 border-x border-t border-line bg-surface-2 py-2.5 pl-6 pr-5 text-[10px] uppercase tracking-[0.22em] text-ghost">
-            <span className="flex-1">app</span>
-            <span className="w-[6.5rem]">state</span>
-            <span className="w-28 text-right">last request</span>
-            <span className="w-24 shrink-0" />
-          </div>
-          <DeploymentList deployments={rows} />
-        </>
+        <AppBrowser rows={rows} initial={parseAppQuery(await searchParams)} />
       )}
     </>
   );
