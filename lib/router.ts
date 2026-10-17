@@ -124,14 +124,41 @@ function normalizeUsage(body: unknown): AppUsage {
   };
 }
 
+/**
+ * `/v1/apps` is the app list; `/deployments` only adds live activity on top.
+ * Activity fills in what the app row lacks and refreshes state and last
+ * request, but never replaces a known value with a missing one — a bare
+ * activity row would otherwise blank the URL and mark the app "unknown".
+ */
+function withActivity(app: Deployment, activity: Deployment | undefined): Deployment {
+  if (!activity) return app;
+  return {
+    ...app,
+    url: app.url ?? activity.url,
+    state: activity.state !== "unknown" ? activity.state : app.state,
+    lastRequestAt: activity.lastRequestAt ?? app.lastRequestAt,
+    createdAt: app.createdAt ?? activity.createdAt,
+    region: app.region ?? activity.region,
+  };
+}
+
+async function listActivity(token: string): Promise<Map<string, Deployment>> {
+  try {
+    const response = await call("/deployments", token);
+    return new Map(normalize(await response.json()).map((item) => [item.id, item]));
+  } catch {
+    // Activity is decoration. Without it the list still renders, from /v1/apps alone.
+    return new Map();
+  }
+}
+
 export async function listDeployments(token: string): Promise<Deployment[]> {
-  const [appsResponse, activityResponse] = await Promise.all([
+  const [appsResponse, activity] = await Promise.all([
     call("/v1/apps", token),
-    call("/deployments", token),
+    listActivity(token),
   ]);
   const apps = normalize(await appsResponse.json());
-  const activity = new Map(normalize(await activityResponse.json()).map((item) => [item.id, item]));
-  return apps.map((app) => ({ ...app, ...activity.get(app.id) }));
+  return apps.map((app) => withActivity(app, activity.get(app.id)));
 }
 
 export async function listAppRevisions(token: string, id: string): Promise<AppRevision[]> {
