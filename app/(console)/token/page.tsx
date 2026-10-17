@@ -53,8 +53,9 @@ export default async function TokenPage() {
         <p className="max-w-prose text-[11px] leading-relaxed text-muted">
           The token carries your account id, so anything holding it can deploy, read and delete
           your apps. Keep it out of repositories and client-side code — put it in an environment
-          variable or your CLI&apos;s stored credentials. If it leaks, rotate it above; the
-          previous token stops working immediately and nothing that is already deployed goes down.
+          variable or your CLI&apos;s stored credentials. If it leaks, rotate it above, update the
+          CLI and anything else that uses it, and tell us at {site.support} so we can confirm the
+          old token is refused. Nothing that is already deployed goes down.
         </p>
         <p className="mt-4 text-[11px] text-faint">
           Nothing deployed yet?{" "}

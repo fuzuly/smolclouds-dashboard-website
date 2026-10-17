@@ -8,6 +8,7 @@ import { InviteForm } from "@/components/InviteForm";
 import { Step } from "@/components/ui";
 import { requireUser } from "@/lib/gate";
 import { allowedDomains } from "@/lib/pilot";
+import { site } from "@/lib/site";
 
 export const metadata: Metadata = { title: "Invite" };
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function WelcomePage() {
             </button>
           </SignOutButton>
           <a
-            href="mailto:support@smolclouds.com?subject=Pilot%20access"
+            href={`mailto:${site.support}?subject=Pilot%20access`}
             className="underline decoration-ghost underline-offset-4 transition-colors hover:text-muted hover:decoration-muted"
           >
             ask for an invite

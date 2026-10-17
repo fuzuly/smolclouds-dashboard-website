@@ -4,7 +4,7 @@ Two additions on the router side. Neither is applied yet: the router source is
 not in this repo, so this file is the spec plus copy-pasteable code.
 
 Nothing here blocks the console. Deployment data is fetched **server-side** by
-Next.js (`lib/router.ts`, called from route handlers), so the browser never
+Next.js (`lib/router.ts`, called from server components and server actions), so the browser never
 talks to `api.smolclouds.com` directly and CORS is not on the critical path.
 Add it when a browser-side or CLI-from-browser caller appears.
 
@@ -154,13 +154,38 @@ bearer header, not cookies.
 
 ## 3. Endpoints the console expects
 
+All calls are made server-side with `Authorization: Bearer <sc_live_...>`. The
+client is `lib/router.ts`; `tests/router.test.ts` pins every shape below.
+
 | Method | Path | Used by | Notes |
 | --- | --- | --- | --- |
-| `GET` | `/deployments` | `/apps`, `/usage` | Array, or `{"deployments":[...]}` |
-| `DELETE` | `/deployments/{id}` | delete button on `/apps` | 2xx on success |
+| `GET` | `/v1/apps` | `/apps`, `/usage`, app detail | `{"apps":[...]}`, a bare array, or `{"deployments":[...]}` |
+| `GET` | `/deployments` | same, for live activity | Optional: if it fails the list still renders from `/v1/apps` |
+| `DELETE` | `/v1/apps/{id}` | delete on `/apps` | 2xx on success |
+| `GET` | `/v1/apps/{id}/usage?month=YYYY-MM` | `/usage`, app detail | `activeSeconds`, `egressBytes`, `ingressBytes`, `requests`, `wakes` (or snake_case `active_seconds`, `egress`, `ingress`), bare or in `{"usage":{...}}`. A missing field is an error, not zero |
+| `GET` | `/v1/apps/{id}/deployments` | app detail history | `{"deployments":[{"id","createdAt","current"}]}` |
+| `GET` | `/v1/apps/{id}/logs?deployment={id}` | app detail logs | `{"deployment","text"}` |
+| `POST` | `/v1/apps/{id}/rollback` | rollback button | Body `{"deployment":"<id>"}`, 2xx on success |
 
-Per deployment the console reads `id`, `name`, `url`, `state`, `lastRequestAt`,
-`createdAt`, `region`. `state` is matched case-insensitively and several
+`/v1/apps` and `/deployments` rows are matched by `id`. `/deployments` only
+refreshes `state` and `lastRequestAt` and fills fields the app row lacks; it
+never blanks a field `/v1/apps` already gave.
+
+### Refusals
+
+On a non-2xx answer the console reads a stable refusal code from the body —
+`{"code":"..."}`, `{"error":"..."}` or `{"error":{"code":"..."}}` — and shows
+what it means and what to do (`lib/errors.ts`). The codes are the ten on
+smolclouds.com/docs/reference/errors: `app_limit_reached`,
+`domain_limit_reached`, `seat_limit_reached`, `spend_cap_reached`,
+`deploys_paused_by_quiet_hours`, `permission_denied`, `app_access_denied`,
+`snapshot_invalidated`, `wake_failed`, `build_failed`. Without a code, the
+console shows the HTTP status as before.
+
+### Fields
+
+Per app the console reads `id`, `name`, `url` (or `hostname`, served over
+https), `state`, `lastRequestAt`, `createdAt`, `region`. `state` is matched case-insensitively and several
 spellings already map through (`running`/`active` → awake,
 `sleeping`/`suspended`/`idle` → asleep, `waking`/`pending` → starting), so the
 router does not have to change its vocabulary. Snake_case keys

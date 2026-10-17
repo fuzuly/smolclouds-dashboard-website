@@ -42,7 +42,7 @@ export function TokenPanel({ token, createdAt }: { token: string; createdAt: str
         <span className="ml-auto flex flex-wrap items-center gap-2">
           {confirming ? (
             <>
-              <span className="text-muted">Rotating invalidates the current token.</span>
+              <span className="text-muted">Rotating replaces this token with a new one.</span>
               <button
                 type="button"
                 disabled={pending}

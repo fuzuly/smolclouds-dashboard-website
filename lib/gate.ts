@@ -9,11 +9,12 @@ import { domainAllowed, pilotOpen, pilotStatus, type PilotStatus } from "@/lib/p
  * Closed-pilot enforcement, run from the console layout so every page behind it
  * is gated by construction.
  *
- * Nothing here writes to Clerk. Approval by allowlisted domain is *derived*
- * from the email on every request rather than persisted — it is a string
- * comparison, and a render that mutates state re-runs on every refresh, which
- * is how this hit Clerk's rate limit the first time around. Only redeeming an
- * invite writes, and that happens in a server action.
+ * Rendering never writes to Clerk. Approval by allowlisted domain is
+ * *derived* from the email on every request rather than persisted — it is a
+ * string comparison, and a render that mutates state re-runs on every
+ * refresh, which is how this hit Clerk's rate limit the first time around.
+ * The one write is `approve`, called only when an invite is redeemed in a
+ * server action.
  */
 
 export type PilotUser = {
