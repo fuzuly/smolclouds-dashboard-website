@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { LogViewer } from "@/components/LogViewer";
 import { RollbackButton } from "@/components/RollbackButton";
 import { Diagnostic, PageHeader, Panel, Rule, Stat, StatusBadge } from "@/components/ui";
 import { explainFailure } from "@/lib/errors";
@@ -172,7 +173,7 @@ export default async function AppPage({ params, searchParams }: Props) {
         <Rule label="console logs" right={selected ? selected.id.slice(0, 12) : "no deployment"} />
         <Panel className="p-5">
           {logsError ? <p className="text-[12px] text-muted">Logs are unavailable. Try reloading.</p> : (
-            <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap break-all text-[11px] leading-5 text-dim">{logText || "No console output recorded yet."}</pre>
+            <LogViewer text={logText} app={app.name} deployment={selected?.id} />
           )}
         </Panel>
       </section>
