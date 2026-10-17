@@ -3,10 +3,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { RollbackButton } from "@/components/RollbackButton";
-import { Diagnostic, PageHeader, Panel, Rule, StatusBadge } from "@/components/ui";
+import { Diagnostic, PageHeader, Panel, Rule, Stat, StatusBadge } from "@/components/ui";
 import { explainFailure } from "@/lib/errors";
+import { currentMonth, formatBytes, formatCount, formatHours, monthName } from "@/lib/format";
 import { requirePilot } from "@/lib/gate";
-import { getAppLogs, listAppRevisions, listDeployments, type Deployment } from "@/lib/router";
+import {
+  getAppLogs,
+  getAppUsage,
+  listAppRevisions,
+  listDeployments,
+  type AppUsage,
+  type Deployment,
+} from "@/lib/router";
 import { site } from "@/lib/site";
 import { exact } from "@/lib/time";
 
@@ -73,11 +81,16 @@ export default async function AppPage({ params, searchParams }: Props) {
 
   let revisions: Awaited<ReturnType<typeof listAppRevisions>> = [];
   let historyError = false;
-  try {
-    revisions = await listAppRevisions(user.key.token, id);
-  } catch {
-    historyError = true;
-  }
+  const month = currentMonth();
+  // History and usage are independent, so neither waits on the other; a
+  // failure in one leaves the other, and the rest of the page, intact.
+  const [history, metered] = await Promise.allSettled([
+    listAppRevisions(user.key.token, id),
+    getAppUsage(user.key.token, id, month),
+  ]);
+  if (history.status === "fulfilled") revisions = history.value;
+  else historyError = true;
+  const usage: AppUsage | null = metered.status === "fulfilled" ? metered.value : null;
   const selected = revisions.find((item) => item.id === deployment) ?? revisions.find((item) => item.current);
   let logText = "";
   let logsError = false;
@@ -108,6 +121,32 @@ export default async function AppPage({ params, searchParams }: Props) {
         </div>
         <StatusBadge state={app.state} />
       </Panel>
+
+      <section className="mt-12">
+        <Rule
+          label="usage this month"
+          right={
+            <Link href="/usage" className="hover:text-text">
+              {monthName(month)} · all apps →
+            </Link>
+          }
+        />
+        {usage ? (
+          <div className="grid gap-px bg-line sm:grid-cols-4">
+            <Stat value={formatHours(usage.activeSeconds)} label="active time" note="time spent awake" />
+            <Stat value={formatBytes(usage.egressBytes)} label="egress" note="outbound traffic" />
+            <Stat value={formatCount(usage.requests)} label="requests" note="served this month" />
+            <Stat value={formatCount(usage.wakes)} label="wakes" note="restored from sleep" />
+          </div>
+        ) : (
+          <Panel className="p-5">
+            <p className="text-[12px] text-muted">
+              Usage unavailable. The router did not return this app&apos;s usage; the rest of the
+              page is unaffected.
+            </p>
+          </Panel>
+        )}
+      </section>
 
       <section className="mt-12">
         <Rule label="deployment history" right={`${revisions.length} retained`} />

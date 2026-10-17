@@ -10,6 +10,13 @@ import {
   Stat,
   StatusBadge,
 } from "@/components/ui";
+import {
+  currentMonth,
+  formatBytes,
+  formatCount,
+  formatHours,
+  monthName,
+} from "@/lib/format";
 import { requirePilot } from "@/lib/gate";
 import { getAppUsage, listDeployments, type AppUsage, type Deployment } from "@/lib/router";
 import { site } from "@/lib/site";
@@ -20,39 +27,11 @@ export const dynamic = "force-dynamic";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
-const BYTE = 1024;
-const COUNT = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
 
 type UsageRow = {
   deployment: Deployment;
   usage: AppUsage | null;
 };
-
-function formatHours(seconds: number): string {
-  return `${(seconds / 3600).toFixed(1)} h`;
-}
-
-function formatBytes(bytes: number): string {
-  const gigabytes = bytes / BYTE ** 3;
-  if (gigabytes >= 1) return `${gigabytes.toFixed(1)} GB`;
-  return `${(bytes / BYTE ** 2).toFixed(1)} MB`;
-}
-
-function formatCount(value: number): string {
-  return COUNT.format(Math.round(value));
-}
-
-function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
-}
-
-function monthName(month: string): string {
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${month}-01T00:00:00Z`));
-}
 
 /** Milliseconds since the app last served a request, or null if it never has. */
 function idleFor(deployment: Deployment): number | null {
